@@ -18,11 +18,15 @@ namespace XNodeEditor {
         private static readonly Vector3[] polyLineTempArray = new Vector3[2];
 
         protected virtual void OnGUI() {
+
             Event e = Event.current;
             Matrix4x4 m = GUI.matrix;
-            if (graph == null) return;
+            if (graph == null)
+            {
+                NodeEditor.ClearAllCache();
+                return;
+            }
             ValidateGraphEditor();
-            Controls();
 
             DrawGrid(position, zoom, panOffset);
             DrawConnections();
@@ -32,6 +36,7 @@ namespace XNodeEditor {
             DrawTooltip();
             graphEditor.OnGUI();
 
+            Controls();
             // Run and reset onLateGUI
             if (onLateGUI != null) {
                 onLateGUI();
@@ -112,11 +117,54 @@ namespace XNodeEditor {
         /// <summary> Show right-click context menu for hovered port </summary>
         void ShowPortContextMenu(XNode.NodePort hoveredPort) {
             GenericMenu contextMenu = new GenericMenu();
+            foreach (var port in hoveredPort.GetConnections())
+            {
+                var name = port.node.name;
+                var index = hoveredPort.GetConnectionIndex(port);
+                contextMenu.AddItem(new GUIContent($"Disconnect({name})"), false, () => hoveredPort.Disconnect(index));
+            }
+
             contextMenu.AddItem(new GUIContent("Clear Connections"), false, () => hoveredPort.ClearConnections());
+            if(hoveredPort.IsOutput)
+            {
+                contextMenu.AddItem(new GUIContent("Add Path Point"), false, AddPathPoint, hoveredPort);
+                contextMenu.AddItem(new GUIContent("Remove Path Point"), false, RemovePathPoint, hoveredPort);
+            }
+                
             contextMenu.DropDown(new Rect(Event.current.mousePosition, Vector2.zero));
             if (NodeEditorPreferences.GetSettings().autoSave) AssetDatabase.SaveAssets();
         }
 
+        /// <summary>
+        /// 添加链接路劲点
+        /// </summary>
+        void AddPathPoint(object userData)
+        {
+            XNode.NodePort hoveredPort = userData as XNode.NodePort;
+            int count = hoveredPort.GetConnections().Count;
+            Undo.RecordObject(hoveredPort.node, "Add Path Point");
+            for (int i = 0; i < count; i++)
+            {
+                List<Vector2> vectors = hoveredPort.GetReroutePoints(i);
+                Vector2 pos = hoveredPort.node.position;
+                vectors.Add(new Vector2(pos.x + 280, pos.y + 60));
+            }
+        }
+
+
+        void RemovePathPoint(object userData)
+        {
+            XNode.NodePort hoveredPort = userData as XNode.NodePort;
+            int count = hoveredPort.GetConnections().Count;
+            Undo.RecordObject(hoveredPort.node, "Remove Path Point");
+            for (int i = 0; i < count; i++)
+            {
+                List<Vector2> vectors = hoveredPort.GetReroutePoints(i);
+                if (vectors.Count > 0)
+                    vectors.RemoveAt(vectors.Count - 1);
+
+            }
+        }
         static Vector2 CalculateBezierPoint(Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3, float t) {
             float u = 1 - t;
             float tt = t * t, uu = u * u;
@@ -142,6 +190,7 @@ namespace XNodeEditor {
             for (int i = 0; i < gridPoints.Count; ++i)
                 gridPoints[i] = GridToWindowPosition(gridPoints[i]);
 
+            Color originalHandlesColor = Handles.color;
             Handles.color = gradient.Evaluate(0f);
             int length = gridPoints.Count;
             switch (path) {
@@ -305,6 +354,7 @@ namespace XNodeEditor {
                     gridPoints[length - 1] = end;
                     break;
             }
+            Handles.color = originalHandlesColor;
         }
 
         /// <summary> Draws all connections </summary>
@@ -327,6 +377,8 @@ namespace XNodeEditor {
                     if (!_portConnectionPoints.TryGetValue(output, out fromRect)) continue;
 
                     Color portColor = graphEditor.GetPortColor(output);
+                    GUIStyle portStyle = graphEditor.GetPortStyle(output);
+
                     for (int k = 0; k < output.ConnectionCount; k++) {
                         XNode.NodePort input = output.GetConnection(k);
 
@@ -360,11 +412,11 @@ namespace XNodeEditor {
                             // Draw selected reroute points with an outline
                             if (selectedReroutes.Contains(rerouteRef)) {
                                 GUI.color = NodeEditorPreferences.GetSettings().highlightColor;
-                                GUI.DrawTexture(rect, NodeEditorResources.dotOuter);
+                                GUI.DrawTexture(rect, portStyle.normal.background);
                             }
 
                             GUI.color = portColor;
-                            GUI.DrawTexture(rect, NodeEditorResources.dot);
+                            GUI.DrawTexture(rect, portStyle.active.background);
                             if (rect.Overlaps(selectionBox)) selection.Add(rerouteRef);
                             if (rect.Contains(mousePos)) hoveredReroute = rerouteRef;
 
@@ -549,16 +601,24 @@ namespace XNodeEditor {
         }
 
         private void DrawTooltip() {
-            if (hoveredPort != null && NodeEditorPreferences.GetSettings().portTooltips && graphEditor != null) {
-                string tooltip = graphEditor.GetPortTooltip(hoveredPort);
-                if (string.IsNullOrEmpty(tooltip)) return;
-                GUIContent content = new GUIContent(tooltip);
-                Vector2 size = NodeEditorResources.styles.tooltip.CalcSize(content);
-                size.x += 8;
-                Rect rect = new Rect(Event.current.mousePosition - (size), size);
-                EditorGUI.LabelField(rect, content, NodeEditorResources.styles.tooltip);
-                Repaint();
+            if (!NodeEditorPreferences.GetSettings().portTooltips || graphEditor is null)
+                return;
+            string tooltip = null;
+            if (hoveredPort != null)
+            {
+                tooltip = graphEditor.GetPortTooltip(hoveredPort);
             }
+            else if (hoveredNode != null && IsHoveringNode && IsHoveringTitle(hoveredNode))
+            {
+                tooltip = NodeEditor.GetEditor(hoveredNode, this).GetHeaderTooltip();
+            }
+            if (string.IsNullOrEmpty(tooltip)) return;
+            GUIContent content = new GUIContent(tooltip);
+            Vector2 size = NodeEditorResources.styles.tooltip.CalcSize(content);
+            size.x += 8;
+            Rect rect = new Rect(Event.current.mousePosition - (size), size);
+            EditorGUI.LabelField(rect, content, NodeEditorResources.styles.tooltip);
+            Repaint();
         }
     }
 }

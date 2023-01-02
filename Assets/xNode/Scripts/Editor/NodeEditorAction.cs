@@ -14,10 +14,18 @@ namespace XNodeEditor {
 
         public static XNode.Node[] copyBuffer = null;
 
-        private bool IsDraggingPort { get { return draggedOutput != null; } }
-        private bool IsHoveringPort { get { return hoveredPort != null; } }
-        private bool IsHoveringNode { get { return hoveredNode != null; } }
-        private bool IsHoveringReroute { get { return hoveredReroute.port != null; } }
+        public bool IsDraggingPort { get { return draggedOutput != null; } }
+        public bool IsHoveringPort { get { return hoveredPort != null; } }
+        public bool IsHoveringNode { get { return hoveredNode != null; } }
+        public bool IsHoveringReroute { get { return hoveredReroute.port != null; } }
+
+        /// <summary> Return the dragged port or null if not exist </summary>
+        public XNode.NodePort DraggedOutputPort { get { XNode.NodePort result = draggedOutput; return result; } }
+        /// <summary> Return the Hovered port or null if not exist </summary>
+        public XNode.NodePort HoveredPort { get { XNode.NodePort result = hoveredPort; return result; } }
+        /// <summary> Return the Hovered node or null if not exist </summary>
+        public XNode.Node HoveredNode { get { XNode.Node result = hoveredNode; return result; } }
+
         private XNode.Node hoveredNode = null;
         [NonSerialized] public XNode.NodePort hoveredPort = null;
         [NonSerialized] private XNode.NodePort draggedOutput = null;
@@ -32,6 +40,7 @@ namespace XNodeEditor {
         private Rect selectionBox;
         private bool isDoubleClick = false;
         private Vector2 lastMousePosition;
+        private float dragThreshold = 1f;
 
         public void Controls() {
             wantsMouseMove = true;
@@ -134,8 +143,11 @@ namespace XNodeEditor {
                             Repaint();
                         }
                     } else if (e.button == 1 || e.button == 2) {
-                        panOffset += e.delta * zoom;
-                        isPanning = true;
+                        //check drag threshold for larger screens
+                        if (e.delta.magnitude > dragThreshold) {
+                            panOffset += e.delta * zoom;
+                            isPanning = true;
+                        }
                     }
                     break;
                 case EventType.MouseDown:
@@ -247,9 +259,18 @@ namespace XNodeEditor {
                             SelectNode(hoveredNode, false);
 
                             // Double click to center node
-                            if (isDoubleClick) {
-                                Vector2 nodeDimension = nodeSizes.ContainsKey(hoveredNode) ? nodeSizes[hoveredNode] / 2 : Vector2.zero;
-                                panOffset = -hoveredNode.position - nodeDimension;
+                            if (isDoubleClick)
+                            {
+                                //这里用着挺别扭先注释掉
+                               // Vector2 nodeDimension = nodeSizes.ContainsKey(hoveredNode) ? nodeSizes[hoveredNode] / 2 : Vector2.zero;
+                                //panOffset = -hoveredNode.position - nodeDimension;
+
+                                if (hoveredNode is XNode.SubGraph.SubGraphNode)
+                                {
+                                    NodeEditorWindow.Open((hoveredNode as XNode.SubGraph.SubGraphNode).targetGraph);
+                                    e.Use();
+                                }
+                                   
                             }
                         }
 
@@ -292,7 +313,7 @@ namespace XNodeEditor {
                     isDoubleClick = false;
                     break;
                 case EventType.KeyDown:
-                    if (EditorGUIUtility.editingTextField) break;
+                    if (EditorGUIUtility.editingTextField || GUIUtility.keyboardControl != 0) break;
                     else if (e.keyCode == KeyCode.F) Home();
                     if (NodeEditorUtilities.IsMac()) {
                         if (e.keyCode == KeyCode.Return) RenameSelectedNode();
@@ -324,11 +345,17 @@ namespace XNodeEditor {
                         if (e.type == EventType.ExecuteCommand) DuplicateSelectedNodes();
                         e.Use();
                     } else if (e.commandName == "Copy") {
-                        if (e.type == EventType.ExecuteCommand) CopySelectedNodes();
-                        e.Use();
+                        if (!EditorGUIUtility.editingTextField)
+                        {
+                            if (e.type == EventType.ExecuteCommand) CopySelectedNodes();
+                            e.Use();
+                        }
                     } else if (e.commandName == "Paste") {
-                        if (e.type == EventType.ExecuteCommand) PasteNodes(WindowToGridPosition(lastMousePosition));
-                        e.Use();
+                        if (!EditorGUIUtility.editingTextField)
+                        {
+                            if (e.type == EventType.ExecuteCommand) PasteNodes(WindowToGridPosition(lastMousePosition));
+                            e.Use();
+                        }
                     }
                     Repaint();
                     break;
@@ -381,6 +408,7 @@ namespace XNodeEditor {
             selectedReroutes.Clear();
             foreach (UnityEngine.Object item in Selection.objects) {
                 if (item is XNode.Node) {
+                        
                     XNode.Node node = item as XNode.Node;
                     graphEditor.RemoveNode(node);
                 }
@@ -420,7 +448,8 @@ namespace XNodeEditor {
         }
 
         public void CopySelectedNodes() {
-            copyBuffer = Selection.objects.Select(x => x as XNode.Node).Where(x => x != null && x.graph == graph).ToArray();
+            //修改SubGraphNode 不让能复制
+            copyBuffer = Selection.objects.Select(x => x as XNode.Node).Where(x => x != null && x.graph == graph && !(x is XNode.SubGraph.SubGraphNode)).ToArray();
         }
 
         public void PasteNodes(Vector2 pos) {
@@ -475,6 +504,7 @@ namespace XNodeEditor {
                 }
             }
             // Select the new nodes
+            EditorUtility.SetDirty(graph);
             Selection.objects = newNodes;
         }
 
@@ -498,6 +528,7 @@ namespace XNodeEditor {
 
                 DrawNoodle(gradient, path, stroke, thickness, gridPoints);
 
+                GUIStyle portStyle = NodeEditorWindow.current.graphEditor.GetPortStyle(draggedOutput);
                 Color bgcol = Color.black;
                 Color frcol = gradient.colorKeys[0].color;
                 bgcol.a = 0.6f;
@@ -510,7 +541,7 @@ namespace XNodeEditor {
                     rect.position = new Vector2(rect.position.x - 8, rect.position.y - 8);
                     rect = GridToWindowRect(rect);
 
-                    NodeEditorGUILayout.DrawPortHandle(rect, bgcol, frcol);
+                    NodeEditorGUILayout.DrawPortHandle(rect, bgcol, frcol, portStyle.normal.background, portStyle.active.background);
                 }
             }
         }

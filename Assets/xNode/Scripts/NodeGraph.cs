@@ -7,9 +7,18 @@ namespace XNode {
     [Serializable]
     public abstract class NodeGraph : ScriptableObject {
 
+        /// <summary>记录拖动的偏移量，对于运行时是无用</summary>
+        [HideInInspector]
+        public Vector2 panOffset;
+
+        /// <summary>节点序列管理</summary>
+        [HideInInspector]
+        public int nodeSeq;
+
         /// <summary> All nodes in the graph. <para/>
         /// See: <see cref="AddNode{T}"/> </summary>
-        [SerializeField] public List<Node> nodes = new List<Node>();
+        [Sirenix.OdinInspector.ReadOnly][SerializeField] public List<Node> nodes = new List<Node>();
+
 
         /// <summary> Add a node to the graph by type (convenience method - will call the System.Type version) </summary>
         public T AddNode<T>() where T : Node {
@@ -21,8 +30,13 @@ namespace XNode {
             Node.graphHotfix = this;
             Node node = ScriptableObject.CreateInstance(type) as Node;
             node.graph = this;
+            //生成唯一识别GUID
+            node.GUID = GenerateId();
+            node.OnCreate();
             nodes.Add(node);
             return node;
+
+
         }
 
         /// <summary> Creates a copy of the original node in the graph </summary>
@@ -31,16 +45,20 @@ namespace XNode {
             Node node = ScriptableObject.Instantiate(original);
             node.graph = this;
             node.ClearConnections();
+            //生成唯一识别GUID
+            node.GUID = GenerateId();
+            node.OnCreate();
             nodes.Add(node);
             return node;
         }
 
         /// <summary> Safely remove a node and all its connections </summary>
         /// <param name="node"> The node to remove </param>
-        public virtual void RemoveNode(Node node) {
+        public virtual void RemoveNode(Node node, bool deleteAsset = false) {
             node.ClearConnections();
             nodes.Remove(node);
-            if (Application.isPlaying) Destroy(node);
+            if (deleteAsset)
+                DestroyImmediate(node);
         }
 
         /// <summary> Remove all nodes and connections from the graph </summary>
@@ -74,12 +92,25 @@ namespace XNode {
                 }
             }
 
+
             return graph;
         }
+
 
         protected virtual void OnDestroy() {
             // Remove all nodes prior to graph destruction
             Clear();
+        }
+
+        /// <summary>GenerateId</summary>
+        private string GenerateId()
+        {
+            long i = 1;
+            foreach (byte b in Guid.NewGuid().ToByteArray())
+            {
+                i *= ((int)b + 1);
+            }
+            return string.Format("{0:x}", i - DateTime.Now.Ticks);
         }
 
 #region Attributes

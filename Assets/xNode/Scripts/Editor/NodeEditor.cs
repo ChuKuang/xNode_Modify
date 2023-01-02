@@ -9,10 +9,12 @@ using Sirenix.Utilities;
 using Sirenix.Utilities.Editor;
 #endif
 
-namespace XNodeEditor {
+namespace XNodeEditor
+{
     /// <summary> Base class to derive custom Node editors from. Use this to create your own custom inspectors and editors for your nodes. </summary>
     [CustomNodeEditor(typeof(XNode.Node))]
-    public class NodeEditor : XNodeEditor.Internal.NodeEditorBase<NodeEditor, NodeEditor.CustomNodeEditorAttribute, XNode.Node> {
+    public class NodeEditor : XNodeEditor.Internal.NodeEditorBase<NodeEditor, NodeEditor.CustomNodeEditorAttribute, XNode.Node>
+    {
 
         private readonly Color DEFAULTCOLOR = new Color32(90, 97, 105, 255);
 
@@ -24,12 +26,14 @@ namespace XNodeEditor {
         protected internal static bool inNodeEditor = false;
 #endif
 
-        public virtual void OnHeaderGUI() {
+        public virtual void OnHeaderGUI()
+        {
             GUILayout.Label(target.name, NodeEditorResources.styles.nodeHeader, GUILayout.Height(30));
         }
 
         /// <summary> Draws standard field editors for all public fields </summary>
-        public virtual void OnBodyGUI() {
+        public virtual void OnBodyGUI()
+        {
 #if ODIN_INSPECTOR
             inNodeEditor = true;
 #endif
@@ -42,10 +46,10 @@ namespace XNodeEditor {
 
 #if ODIN_INSPECTOR
             InspectorUtilities.BeginDrawPropertyTree(objectTree, true);
-            GUIHelper.PushLabelWidth(84);
+           // GUIHelper.PushLabelWidth(84);
             objectTree.Draw(true);
             InspectorUtilities.EndDrawPropertyTree(objectTree);
-            GUIHelper.PopLabelWidth();
+           // GUIHelper.PopLabelWidth();
 #else
 
             // Iterate through serialized properties and draw them like the Inspector (But with ports)
@@ -59,7 +63,8 @@ namespace XNodeEditor {
 #endif
 
             // Iterate through dynamic ports and draw them in the order in which they are serialized
-            foreach (XNode.NodePort dynamicPort in target.DynamicPorts) {
+            foreach (XNode.NodePort dynamicPort in target.DynamicPorts)
+            {
                 if (NodeEditorGUILayout.IsDynamicPortListPort(dynamicPort)) continue;
                 NodeEditorGUILayout.PortField(dynamicPort);
             }
@@ -68,7 +73,8 @@ namespace XNodeEditor {
 
 #if ODIN_INSPECTOR
             // Call repaint so that the graph window elements respond properly to layout changes coming from Odin
-            if (GUIHelper.RepaintRequested) {
+            if (GUIHelper.RepaintRequested)
+            {
                 GUIHelper.ClearRepaintRequest();
                 window.Repaint();
             }
@@ -79,7 +85,9 @@ namespace XNodeEditor {
 #endif
         }
 
-        public virtual int GetWidth() {
+
+        public virtual int GetWidth()
+        {
             Type type = target.GetType();
             int width;
             if (type.TryGetAttributeWidth(out width)) return width;
@@ -87,28 +95,67 @@ namespace XNodeEditor {
         }
 
         /// <summary> Returns color for target node </summary>
-        public virtual Color GetTint() {
-            // Try get color from [NodeTint] attribute
+        public virtual Color GetTint()
+        {
+
+            if (!Application.isPlaying)
+            {
+                //与选中节点连接时 更改颜色
+                bool autoshowConnectNode = NodeEditorPreferences.GetSettings().ShowConnectNode;
+                if (autoshowConnectNode && Selection.objects.Length == 1 && Selection.activeObject is XNode.Node)
+                {
+                    XNode.Node selectNode = Selection.activeObject as XNode.Node;
+                    if (target != selectNode)
+                    {
+                        foreach (var item in target.Ports)
+                        {
+                            List<XNode.NodePort> connects = item.GetConnections();
+                            foreach (var port in connects)
+                            {
+                                if (port.node == selectNode)
+                                {
+                                    if (port.IsInput)
+                                        return NodeEditorPreferences.GetSettings().OutPutNodeColor;
+                                    else
+                                        return NodeEditorPreferences.GetSettings().InPutNodeColor;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             Type type = target.GetType();
             Color color;
             if (type.TryGetAttributeTint(out color)) return color;
             // Return default color (grey)
-            else return DEFAULTCOLOR;
+            else return NodeEditorPreferences.GetSettings().tintColor;
         }
 
-        public virtual GUIStyle GetBodyStyle() {
+
+        public virtual GUIStyle GetBodyStyle()
+        {
             return NodeEditorResources.styles.nodeBody;
         }
 
-        public virtual GUIStyle GetBodyHighlightStyle() {
+        public virtual GUIStyle GetBodyHighlightStyle()
+        {
             return NodeEditorResources.styles.nodeHighlight;
         }
 
+        /// <summary> Override to display custom node header tooltips </summary>
+        public virtual string GetHeaderTooltip()
+        {
+            return null;
+        }
+
         /// <summary> Add items for the context menu when right-clicking this node. Override to add custom menu items. </summary>
-        public virtual void AddContextMenuItems(GenericMenu menu) {
+        public virtual void AddContextMenuItems(GenericMenu menu)
+        {
             bool canRemove = true;
             // Actions if only one node is selected
-            if (Selection.objects.Length == 1 && Selection.activeObject is XNode.Node) {
+            if (Selection.objects.Length == 1 && Selection.activeObject is XNode.Node)
+            {
                 XNode.Node node = Selection.activeObject as XNode.Node;
                 menu.AddItem(new GUIContent("Move To Top"), false, () => NodeEditorWindow.current.MoveNodeToTop(node));
                 menu.AddItem(new GUIContent("Rename"), false, NodeEditorWindow.current.RenameSelectedNode);
@@ -124,14 +171,16 @@ namespace XNodeEditor {
             else menu.AddItem(new GUIContent("Remove"), false, null);
 
             // Custom sctions if only one node is selected
-            if (Selection.objects.Length == 1 && Selection.activeObject is XNode.Node) {
+            if (Selection.objects.Length == 1 && Selection.activeObject is XNode.Node)
+            {
                 XNode.Node node = Selection.activeObject as XNode.Node;
                 menu.AddCustomContextMenuItems(node);
             }
         }
 
         /// <summary> Rename the node asset. This will trigger a reimport of the node. </summary>
-        public void Rename(string newName) {
+        public void Rename(string newName)
+        {
             if (newName == null || newName.Trim() == "") newName = NodeEditorUtilities.NodeDefaultName(target.GetType());
             target.name = newName;
             OnRename();
@@ -141,23 +190,21 @@ namespace XNodeEditor {
         /// <summary> Called after this node's name has changed. </summary>
         public virtual void OnRename() { }
 
-        public void RemoveEditor()
-        {
-            RemoveEditor(target);
-        }
-
 
         [AttributeUsage(AttributeTargets.Class)]
         public class CustomNodeEditorAttribute : Attribute,
-        XNodeEditor.Internal.NodeEditorBase<NodeEditor, NodeEditor.CustomNodeEditorAttribute, XNode.Node>.INodeEditorAttrib {
+        XNodeEditor.Internal.NodeEditorBase<NodeEditor, NodeEditor.CustomNodeEditorAttribute, XNode.Node>.INodeEditorAttrib
+        {
             private Type inspectedType;
             /// <summary> Tells a NodeEditor which Node type it is an editor for </summary>
             /// <param name="inspectedType">Type that this editor can edit</param>
-            public CustomNodeEditorAttribute(Type inspectedType) {
+            public CustomNodeEditorAttribute(Type inspectedType)
+            {
                 this.inspectedType = inspectedType;
             }
 
-            public Type GetInspectedType() {
+            public Type GetInspectedType()
+            {
                 return inspectedType;
             }
         }

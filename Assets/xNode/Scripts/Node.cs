@@ -51,6 +51,8 @@ namespace XNode {
             Strict,
             /// <summary> Allow connections where output value type is assignable from input value type (eg. Object --> ScriptableObject)</summary>
             InheritedInverse,
+            /// <summary> Allow connections where output value type is assignable from input value or input value type is assignable from output value type</summary>
+            InheritedAny
         }
 
 #region Obsolete
@@ -115,6 +117,14 @@ namespace XNode {
 
         /// <summary> Used during node instantiation to fix null/misconfigured graph during OnEnable/Init. Set it before instantiating a node. Will automatically be unset during OnEnable </summary>
         public static NodeGraph graphHotfix;
+
+        //唯一识别的GUID，创建时自动生成
+        [HideInInspector]
+        public string GUID = "";
+
+        //第一次创建时执行（包括新建 复制）
+        public virtual void  OnCreate(){}
+
 
         protected void OnEnable() {
             if (graphHotfix != null) graph = graphHotfix;
@@ -255,6 +265,10 @@ namespace XNode {
         /// <param name="port">Output or Input</param>
         public virtual void OnRemoveConnection(NodePort port) { }
 
+        /// <summary>alled after a connection between two </summary>
+        /// <param name="from">output</param>input <param name="to"></param>
+        public virtual void OnRemoveConnection(NodePort from, NodePort to) { }
+
         /// <summary> Disconnect everything from this node </summary>
         public void ClearConnections() {
             foreach (NodePort port in Ports) port.ClearConnections();
@@ -386,43 +400,56 @@ namespace XNode {
             }
         }
 
-
-        /// <summary> Specify a width for this node type </summary>
-        [AttributeUsage(AttributeTargets.Field, AllowMultiple = false)]
-        public class NodeDynamicPortKeyAttribute : Attribute
+        /// <summary>
+        /// 附加到list动态端口上 ，标记导出的key
+        /// </summary>
+        [AttributeUsage(AttributeTargets.Field)]
+        public class ListPortKeyAttribute : Attribute
         {
-            public string key;
-            /// <summary> Specify a width for this node type </summary>
-            /// <param name="width"> Width </param>
-            public NodeDynamicPortKeyAttribute(string key)
+            public string ExportKey { get; protected set; }
+            public ListPortKeyAttribute(string exportKey)
             {
-                this.key = key;
+                ExportKey = exportKey;
             }
         }
 
-        [AttributeUsage(AttributeTargets.Field, AllowMultiple = false)]
+
+        /// <summary>
+        /// 节点字段显示宽度，无Odin时使用
+        /// </summary>
+        [AttributeUsage(AttributeTargets.Field)]
         public class NodeLabelWidthAttribute : Attribute
         {
-            public int labelWidth;
-            /// <summary> Specify a width for this node type </summary>
-            /// <param name="width"> Width </param>
-            public NodeLabelWidthAttribute(int labelWidth)
+            public float LabelWidth { get; protected set; }
+            public NodeLabelWidthAttribute(float labelWidth)
             {
-                this.labelWidth = labelWidth;
+                LabelWidth = LabelWidth;
             }
         }
 
-        [AttributeUsage(AttributeTargets.Field, AllowMultiple = false)]
+
+        /// <summary>
+        /// 节点字段显示名,无Odin时使用
+        /// </summary>
+        [AttributeUsage(AttributeTargets.Field)]
         public class NodeLabelTextAttribute : Attribute
         {
-            public string labelText;
-            /// <summary> Specify a width for this node type </summary>
-            /// <param name="width"> Width </param>
+            public string LabelText { get; protected set; }
             public NodeLabelTextAttribute(string labelText)
             {
-                this.labelText = labelText;
+                LabelText = labelText;
             }
         }
+
+        /// <summary>
+        /// 隐藏节点菜单
+        /// </summary>
+        [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
+        public class HideNodeMenuAttribute : Attribute
+        {
+
+        }
+
         #endregion
 
         [Serializable] private class NodePortDictionary : Dictionary<string, NodePort>, ISerializationCallbackReceiver {

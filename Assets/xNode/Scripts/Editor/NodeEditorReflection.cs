@@ -88,10 +88,13 @@ namespace XNodeEditor {
                 }
                 for (int i = 0; i < items.Length; i++) {
                     KeyValuePair<ContextMenu, MethodInfo> kvp = items[i];
-                    if (invalidatedEntries.Contains(kvp.Key.menuItem)) {
+                    if (string.IsNullOrEmpty(kvp.Key.menuItem))
+                        contextMenu.AddSeparator("");
+                   else if (invalidatedEntries.Contains(kvp.Key.menuItem)) {
                         contextMenu.AddDisabledItem(new GUIContent(kvp.Key.menuItem));
                     } else {
-                        contextMenu.AddItem(new GUIContent(kvp.Key.menuItem), false, () => kvp.Value.Invoke(obj, null));
+                      if (!kvp.Key.validate)  //Exclude validate ContextMenu
+                            contextMenu.AddItem(new GUIContent(kvp.Key.menuItem), false, () => kvp.Value.Invoke(obj, null));
                     }
                 }
             }

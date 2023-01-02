@@ -35,7 +35,7 @@ namespace XNodeEditor {
                         if (node != null && node.graph != null) {
                             // Delete the node and notify the user
                             Debug.LogWarning (node.name + " of " + node.graph + " depended on deleted script and has been removed automatically.", node.graph);
-                            node.graph.RemoveNode (node);
+                            node.graph.RemoveNode (node,true);
                         }
                     }
                 }
@@ -45,22 +45,28 @@ namespace XNodeEditor {
         }
 
         /// <summary> Automatically re-add loose node assets to the Graph node list </summary>
-        [InitializeOnLoadMethod]
-        private static void OnReloadEditor () {
-            // Find all NodeGraph assets
-            string[] guids = AssetDatabase.FindAssets ("t:" + typeof (XNode.NodeGraph));
-            for (int i = 0; i < guids.Length; i++) {
-                string assetpath = AssetDatabase.GUIDToAssetPath (guids[i]);
-                XNode.NodeGraph graph = AssetDatabase.LoadAssetAtPath (assetpath, typeof (XNode.NodeGraph)) as XNode.NodeGraph;
-                graph.nodes.RemoveAll(x => x == null); //Remove null items
-                Object[] objs = AssetDatabase.LoadAllAssetRepresentationsAtPath (assetpath);
-                // Ensure that all sub node assets are present in the graph node list
-                for (int u = 0; u < objs.Length; u++) {
-                    // Ignore null sub assets
-                    if (objs[u] == null) continue;
-                    if (!graph.nodes.Contains (objs[u] as XNode.Node)) graph.nodes.Add(objs[u] as XNode.Node);
-                }
-            }
-        }
+        /// 添加了子图功能  自动补齐不合适  会把子图得节点也添加上去了，后续考虑把子图拆出来
+        //[InitializeOnLoadMethod]
+        //private static void OnReloadEditor()
+        //{
+        //    // Find all NodeGraph assets
+        //    string[] guids = AssetDatabase.FindAssets("t:" + typeof(XNode.NodeGraph));
+        //    for (int i = 0; i < guids.Length; i++)
+        //    {
+        //        string assetpath = AssetDatabase.GUIDToAssetPath(guids[i]);
+        //        XNode.NodeGraph graph = AssetDatabase.LoadAssetAtPath(assetpath, typeof(XNode.NodeGraph)) as XNode.NodeGraph;
+        //        graph.nodes.RemoveAll(x => x == null); //Remove null items
+        //        Object[] objs = AssetDatabase.LoadAllAssetRepresentationsAtPath(assetpath);
+        //        // Ensure that all sub node assets are present in the graph node list
+        //        for (int u = 0; u < objs.Length; u++)
+        //        {
+        //            // Ignore null sub assets
+        //            if (objs[u] == null) continue;
+        //            if (!graph.nodes.Contains(objs[u] as XNode.Node)) graph.nodes.Add(objs[u] as XNode.Node);
+        //        }
+        //    }
+        //}
+
+
     }
 }

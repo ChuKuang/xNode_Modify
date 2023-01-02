@@ -69,8 +69,15 @@ namespace XNodeEditor {
         public Dictionary<XNode.Node, Vector2> nodeSizes { get { return _nodeSizes; } }
         private Dictionary<XNode.Node, Vector2> _nodeSizes = new Dictionary<XNode.Node, Vector2>();
         public XNode.NodeGraph graph;
-        public Vector2 panOffset { get { return _panOffset; } set { _panOffset = value; Repaint(); } }
-        private Vector2 _panOffset;
+        public Vector2 panOffset 
+        { 
+            get { return graph != null ? graph.panOffset : Vector2.zero; } 
+            set 
+            {  
+                if(graph != null){graph.panOffset = value;}
+                Repaint(); 
+            } 
+        }
         public float zoom { get { return _zoom; } set { _zoom = Mathf.Clamp(value, NodeEditorPreferences.GetSettings().minZoom, NodeEditorPreferences.GetSettings().maxZoom); Repaint(); } }
         private float _zoom = 1;
 
@@ -81,10 +88,24 @@ namespace XNodeEditor {
                 graphEditor.OnWindowFocus();
                 if (NodeEditorPreferences.GetSettings().autoSave) AssetDatabase.SaveAssets();
             }
+            
+            dragThreshold = Math.Max(1f, Screen.width / 1000f);
         }
         
         void OnLostFocus() {
             if (graphEditor != null) graphEditor.OnWindowFocusLost();
+        }
+
+        private void OnDestroy()
+        {
+            if(Application.isPlaying)
+            {
+                if (AssetDatabase.Contains(graph))
+                {
+                    EditorUtility.SetDirty(graph);
+                    AssetDatabase.SaveAssets();
+                }
+            }
         }
 
         [InitializeOnLoadMethod]
@@ -97,7 +118,7 @@ namespace XNodeEditor {
         private static void OnSelectionChanged() {
             XNode.NodeGraph nodeGraph = Selection.activeObject as XNode.NodeGraph;
             if (nodeGraph && !AssetDatabase.Contains(nodeGraph)) {
-                Open(nodeGraph);
+                if (NodeEditorPreferences.GetSettings().openOnCreate) Open(nodeGraph);
             }
         }
 
@@ -186,7 +207,8 @@ namespace XNodeEditor {
         [OnOpenAsset(0)]
         public static bool OnOpen(int instanceID, int line) {
             XNode.NodeGraph nodeGraph = EditorUtility.InstanceIDToObject(instanceID) as XNode.NodeGraph;
-            if (nodeGraph != null) {
+            if (nodeGraph != null)
+            {
                 Open(nodeGraph);
                 return true;
             }
@@ -197,7 +219,7 @@ namespace XNodeEditor {
         public static NodeEditorWindow Open(XNode.NodeGraph graph) {
             if (!graph) return null;
 
-            NodeEditorWindow w = GetWindow(typeof(NodeEditorWindow), false, "xNode", true) as NodeEditorWindow;
+            NodeEditorWindow w = GetWindow(typeof(NodeEditorWindow), false, graph.name, true) as NodeEditorWindow;
             w.wantsMouseMove = true;
             w.graph = graph;
             return w;
@@ -210,5 +232,7 @@ namespace XNodeEditor {
                 windows[i].Repaint();
             }
         }
+
+    
     }
 }

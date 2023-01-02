@@ -9,8 +9,10 @@ using XNode;
 namespace XNodeEditor {
     /// <summary> Deals with modified assets </summary>
     class NodeGraphImporter : AssetPostprocessor {
-        private static void OnPostprocessAllAssets(string[] importedAssets, string[] deletedAssets, string[] movedAssets, string[] movedFromAssetPaths) {
-            foreach (string path in importedAssets) {
+        private static void OnPostprocessAllAssets(string[] importedAssets, string[] deletedAssets, string[] movedAssets, string[] movedFromAssetPaths)
+        {
+            foreach (string path in importedAssets)
+            {
                 // Skip processing anything without the .asset extension
                 if (Path.GetExtension(path) != ".asset") continue;
 
@@ -24,16 +26,21 @@ namespace XNodeEditor {
                     graphType.GetCustomAttributes(typeof(NodeGraph.RequireNodeAttribute), true), x => x as NodeGraph.RequireNodeAttribute);
 
                 Vector2 position = Vector2.zero;
-                foreach (NodeGraph.RequireNodeAttribute attrib in attribs) {
+                foreach (NodeGraph.RequireNodeAttribute attrib in attribs)
+                {
                     if (attrib.type0 != null) AddRequired(graph, attrib.type0, ref position);
                     if (attrib.type1 != null) AddRequired(graph, attrib.type1, ref position);
                     if (attrib.type2 != null) AddRequired(graph, attrib.type2, ref position);
                 }
             }
+
         }
 
-        private static void AddRequired(NodeGraph graph, Type type, ref Vector2 position) {
-            if (!graph.nodes.Any(x => x.GetType() == type)) {
+
+        private static void AddRequired(NodeGraph graph, Type type, ref Vector2 position)
+        {
+            if (!graph.nodes.Any(x => x.GetType() == type))
+            {
                 XNode.Node node = graph.AddNode(type);
                 node.position = position;
                 position.x += 200;
